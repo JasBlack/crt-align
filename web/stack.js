@@ -18,11 +18,21 @@ function readTheme() {
 }
 function setTheme(ui) {
   document.body.dataset.ui = ui;
-  try { localStorage.setItem('crt-align-ui', ui); } catch { /* storage blocked */ }
+  try { localStorage.setItem('align-ui', ui); } catch { /* storage blocked */ }
   readTheme(); draw();
 }
-try { document.body.dataset.ui = localStorage.getItem('crt-align-ui') || 'dark'; } catch { /* storage blocked */ }
+try { document.body.dataset.ui = localStorage.getItem('align-ui') || localStorage.getItem('crt-align-ui') || 'dark'; } catch { /* storage blocked */ }
 readTheme();
+
+// settings remembered between visits (versioned key, family rule)
+const PREFS = 'align-stack-v1';
+const PREF_KEYS = ['method', 'kind', 'aspect', 'place', 'size', 'fmt'];
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS) || '{}') || {}; } catch { return {}; }
+}
+function savePrefs() {
+  try { localStorage.setItem(PREFS, JSON.stringify(Object.fromEntries(PREF_KEYS.map(k => [k, S[k]])))); } catch { /* storage blocked */ }
+}
 
 let nextId = 1;
 const S = {
@@ -33,6 +43,14 @@ const S = {
   vp: null, rawVp: null, aligned: false, busy: false, cancel: false,
   report: null, costs: [], playing: false,
 };
+{
+  const p = loadPrefs(), ok = {
+    method: ['match', 'bright', 'manual'], kind: ['translate', 'similarity', 'homography'],
+    aspect: ASPECTS.map(a => a.id), place: ['centre', 'thirds', 'free'], size: ['native', '1080', '2160'], fmt: ['jpg', 'png'],
+  };
+  for (const k of PREF_KEYS) if (ok[k].includes(p[k])) S[k] = p[k];
+  if (S.method === 'manual') S.tool = 'anchor';
+}
 
 // ---------------------------------------------------------------- canvases
 
@@ -172,7 +190,7 @@ function paintOverlay() {
   // dim everything outside the crop
   if (row?.rect) {
     const r = row.rect, [x0, y0] = toBuf(r.x, r.y, v), [x1, y1] = toBuf(r.x + r.w, r.y + r.h, v);
-    octx.fillStyle = S.view === 'crop' ? (C.light ? 'rgba(228,228,225,0.96)' : 'rgba(20,21,23,0.96)') : 'rgba(0,0,0,0.5)';
+    octx.fillStyle = S.view === 'crop' ? 'rgba(11,11,12,0.96)' : 'rgba(0,0,0,0.5)';  // the stage is dark in both themes
     octx.beginPath(); octx.rect(0, 0, VW, VH); octx.rect(x0, y0, x1 - x0, y1 - y0); octx.fill('evenodd');
   }
   if (S.view !== 'crop') {
@@ -852,6 +870,7 @@ const notes = {
 };
 
 function refreshAll() {
+  savePrefs();
   const has = S.items.length > 0, two = S.items.length > 1;
   for (const b of document.querySelectorAll('#views button')) b.setAttribute('aria-pressed', String(b.dataset.view === S.view));
   for (const b of document.querySelectorAll('#method .chip')) b.setAttribute('aria-pressed', String(b.dataset.method === S.method));

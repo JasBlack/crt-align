@@ -21,15 +21,15 @@ const rgb01 = v => {
 };
 function readTheme() {
   const cs = getComputedStyle(document.body), g = n => cs.getPropertyValue(n).trim();
-  C = { accent: g('--accent'), accent2: g('--accent2'), panel: g('--panel'), well: rgb01(g('--well')),
+  C = { accent: g('--accent'), accent2: g('--accent2'), panel: g('--panel'), well: rgb01(g('--stage')),
         line: rgb01(g('--accent')), light: document.body.dataset.ui === 'light' };
 }
 function setTheme(ui) {
   document.body.dataset.ui = ui;
-  try { localStorage.setItem('crt-align-ui', ui); } catch { /* storage blocked */ }
+  try { localStorage.setItem('align-ui', ui); } catch { /* storage blocked */ }
   readTheme(); draw();
 }
-try { document.body.dataset.ui = localStorage.getItem('crt-align-ui') || localStorage.getItem('crt-match-ui') || 'dark'; } catch { /* storage blocked */ }
+try { document.body.dataset.ui = localStorage.getItem('align-ui') || localStorage.getItem('crt-align-ui') || localStorage.getItem('crt-match-ui') || 'dark'; } catch { /* storage blocked */ }
 readTheme();
 
 const S = {
@@ -111,7 +111,7 @@ function paint() {
   const tile = Math.max(16, Math.round(Math.min(cw, ch) / 12));
   R.render({ mode, opacity: S.opacity, tile, swipe: S.swipe, view, canvasSize: [cw, ch], width: VW, height: VH,
              edge: S.edge, screenOverride: S.follow ? S.tracked : null,
-             bg: C.well, dots: C.light ? [0, 0, 0, 0.9] : [1, 1, 1, 1], dpr, line: C.line });
+             bg: C.well, dots: [0, 0, 0, 0], dpr, line: C.line });
   paintOverlay();
 }
 

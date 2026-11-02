@@ -3,28 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Align Stack by JAS.BLACK</title>
-<meta name="description" content="Line up a set of photos on one anchor (a building, the sun, a face) and see how much of the frame survives in 16:9, 9:16, 1:1 or 4:5. Runs in your browser; nothing is uploaded.">
+<title>Align - JAS.BLACK</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Line up a set of photos on one anchor (a building, the sun, a face) and see how much of the frame survives as 16:9, 9:16, 1:1 or 4:5. Runs in your browser; nothing is uploaded.">
 <meta name="theme-color" content="#121314">
+<link rel="canonical" href="https://align.jas.black/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Align">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JAS.BLACK">
+<meta property="og:title" content="Align - JAS.BLACK">
+<meta property="og:description" content="Line up a set of photos on one anchor (a building, the sun, a face) and see how much of the frame survives as 16:9, 9:16, 1:1 or 4:5. Runs in your browser; nothing is uploaded.">
+<meta property="og:url" content="https://align.jas.black/">
+<meta property="og:image" content="https://align.jas.black/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Six handheld photos of a city skyline lined up on one building, with the shared 16:9 crop marked">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Align - JAS.BLACK">
+<meta name="twitter:description" content="Line up a set of photos on one anchor (a building, the sun, a face) and see how much of the frame survives as 16:9, 9:16, 1:1 or 4:5. Runs in your browser; nothing is uploaded.">
+<meta name="twitter:image" content="https://align.jas.black/og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="stack.css">
 </head>
-<body data-ui="dark" class="stackmode">
+<body data-ui="dark" class="stackmode" data-tool="align" data-version="0.2.0">
 <div id="app">
 
   <header class="top">
-    <div class="brandrow">
-      <span class="led" id="led-ready" aria-hidden="true"></span>
-      <span class="brand">ALIGN</span>
-      <span class="led" id="led-busy" aria-hidden="true"></span>
-    </div>
+    <div class="brandbox"><span class="brand">ALIGN</span><span class="brand-ver"></span></div>
     <nav class="seg appmode" aria-label="Tool">
       <a href="index.html" title="Line a filmed CRT capture back up on its source">crt</a>
       <a href="stack.html" aria-current="page" title="Line up a set of photos on one anchor">stack</a>
     </nav>
+    <div class="status" aria-label="Status lights">
+      <span><i class="led" id="led-ready"></i>aligned</span>
+      <span><i class="led" id="led-busy"></i>busy</span>
+    </div>
 
     <div class="topmid">
       <div class="seg" id="views" aria-label="View">
@@ -94,6 +114,39 @@
         <button type="button" class="emore" id="btn-reset-nudge" hidden>undo the nudge on this photo &rsaquo;</button>
       </section>
 
+      <p class="foot">everything runs in your browser. nothing is uploaded.</p>
+    </aside>
+
+    <section class="centre">
+      <div class="stage" id="stage" data-tool="anchor">
+        <canvas id="gl"></canvas>
+        <canvas id="overlay"></canvas>
+        <div class="stage-hint" id="stage-hint">drop photos here<br>a building &middot; the sun &middot; a face</div>
+        <div class="busy" id="busy" hidden>
+          <div class="busy-label" id="busy-label">aligning</div>
+          <div class="busy-bar"><i id="busy-bar"></i></div>
+          <div class="busy-log" id="busy-stage"></div>
+          <button type="button" class="ebtn" id="busy-cancel">cancel</button>
+        </div>
+      </div>
+
+      <div class="strip" id="strip-wrap">
+        <button type="button" class="roundkey" id="play" aria-label="Flick through the set" title="Flick through the set (space)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="film" id="film" role="listbox" aria-label="Photos"></div>
+      </div>
+
+      <div class="lcdrow">
+        <div class="lcd" id="lcd">drop a set of photos to begin.</div>
+        <div class="zoom" id="zoom-readout">100%</div>
+      </div>
+      <div class="keys" id="shortcuts">
+        <span><kbd>1</kbd>&ndash;<kbd>6</kbd> view &middot; <kbd>V</kbd><kbd>A</kbd><kbd>N</kbd> tools &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> photo &middot; <kbd>alt</kbd>+<kbd>&larr;</kbd> nudge 1px &middot; <kbd>X</kbd> leave out &middot; <kbd>space</kbd> flick &middot; <kbd>F</kbd> fit</span>
+        <span>right-click a slider resets it</span>
+      </div>
+    </section>
+    <aside class="col right" id="console" aria-label="Crop and export">
       <section class="panel" id="p-crop">
         <h2><i>4</i><b>crop</b><span>what's left?</span></h2>
         <div class="aspects" id="aspects" role="list"></div>
@@ -129,42 +182,13 @@
         <div class="lcd mini" id="out-line">&ndash;</div>
       </section>
 
-      <p class="foot">everything runs in your browser. nothing is uploaded.</p>
     </aside>
-
-    <section class="centre">
-      <div class="stage" id="stage" data-tool="anchor">
-        <canvas id="gl"></canvas>
-        <canvas id="overlay"></canvas>
-        <div class="stage-hint" id="stage-hint">drop photos here<br>a building &middot; the sun &middot; a face</div>
-        <div class="busy" id="busy" hidden>
-          <div class="busy-label" id="busy-label">aligning</div>
-          <div class="busy-bar"><i id="busy-bar"></i></div>
-          <div class="busy-log" id="busy-stage"></div>
-          <button type="button" class="ebtn" id="busy-cancel">cancel</button>
-        </div>
-      </div>
-
-      <div class="strip" id="strip-wrap">
-        <button type="button" class="roundkey" id="play" aria-label="Flick through the set" title="Flick through the set (space)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M8 5v14l11-7z"/></svg>
-        </button>
-        <div class="film" id="film" role="listbox" aria-label="Photos"></div>
-      </div>
-
-      <div class="lcdrow">
-        <div class="lcd" id="lcd">drop a set of photos to begin.</div>
-        <div class="zoom" id="zoom-readout">100%</div>
-      </div>
-      <div class="keys" id="shortcuts">
-        <kbd>1</kbd>&ndash;<kbd>6</kbd> view &middot; <kbd>V</kbd><kbd>A</kbd><kbd>N</kbd> tools &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> photo &middot; <kbd>alt</kbd>+<kbd>&larr;</kbd> nudge 1px &middot; <kbd>X</kbd> leave out &middot; <kbd>space</kbd> flick &middot; <kbd>F</kbd> fit
-      </div>
-    </section>
   </main>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 </div>
 <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple hidden>
+<script src="family.js"></script>
 <script type="module" src="stack.js"></script>
 </body>
 </html>

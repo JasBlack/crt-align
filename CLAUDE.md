@@ -35,7 +35,9 @@ Two implementations:
 ```
 web/                       the browser app (deploy this folder as-is)
   index.html               page shell (full HTML document)
-  app.css                  styles; single dark theme on purpose
+  app.css                  styles (family tokens, dark + light; stage stays dark)
+  family.js                JAS.BLACK family behaviour, verbatim from the kit
+  favicon.svg, *.png, site.webmanifest, og.jpg   icons + link preview
   app.js                   UI controller: loading, view/pan/zoom, Pin + Raster tools,
                            video transport + sync, export, undo, alignment JSON
   engine.js                main-thread client for the solver worker (+ cancel)
@@ -200,15 +202,31 @@ Gotchas:
   warp never touches the solver; full Align clears it, Refine keeps it. The solver's
   own pin constraints (`model.pins`, `pinEnergy`) remain in the engine but the UI no
   longer uses them.
-- **UI belongs to the JAS.BLACK tool family** (paint.jas.black = Code Painter,
-  snap.jas.black = SnipSnap). Tokens are Code Painter's exactly (`app.css`, on
-  `body[data-ui]`, dark default + its light theme): keys with a 2 px lip that press down,
-  5 px LEDs, green `#39ff88` + purple `#b36bff` accents, green-on-black LCD status line,
-  IBM Plex Mono everywhere, Archivo 800 for the badge, numbered step panels with
-  right-aligned hints. SnipSnap contributes the cutting-mat dot grid (drawn in the stage
-  shader, same 24 px spacing and noise), the round play key + inset timeline, the
-  tracked-uppercase progress overlay and left-edged toasts. Purple = pins/markers,
-  green = active state, edges overlay and screen handles. Keep new UI inside this kit.
+- **UI follows the JAS.BLACK tool family kit** (`jas-black-tools` skill: SKILL.md +
+  family.css/js). Applied Nov 2026:
+  - title = 7 px green LED + ALIGN (Archivo 800, 13 px, .32em) via `.brand::before`;
+    version (`<body data-version>`) shows only on hover (`.brand-ver`); no other dots by
+    the title. Status LEDs (`aligned · busy`) sit after the crt|stack switch.
+  - tab title / og:title / twitter:title / manifest = `Align - JAS.BLACK`;
+    og:site_name JAS.BLACK; canonical guessed as align.jas.black (no CNAME yet).
+  - `web/family.js` is the family file verbatim: slider fill, **right-click resets any
+    slider** to its load value, hover version, segmented switches. Footers say
+    "right-click a slider resets it".
+  - tokens: green #39ff88, violet #b36bff exactly; muted #929399 / light #686864;
+    slider readouts violet (`--value`); 12 px knobs; 18 px step badges.
+  - dot grid = the family's baked PNG tile on the body (`--dotgrid`), never a CSS
+    gradient; the stage is a #0b0b0c well in **both** themes (`--stage`; the CRT shader
+    gets it as bg with dots off; stack crop-dim is always dark).
+  - stack mode is a console layout: steps left (photos, anchor, align), stage + film
+    strip, console right (crop, export, 282 px); under 860 px stage first.
+  - theme key `align-ui` (falls back to crt-align-ui / crt-match-ui); stack settings in
+    `align-stack-v1`.
+  - icons: favicon.svg (two offset frames green/violet + crosshair on a dark tile),
+    PNGs 32/180/192/512, site.webmanifest, og.jpg 1200x630 from a real stack (chicago).
+  Open against the kit: mediabunny still loads from jsDelivr at runtime (kit says vendor
+  essentials); red is used for failed matches and error toasts (kit: rec/danger only).
+  SnipSnap pieces kept: round play key, inset timeline, uppercase progress overlay,
+  left-edged toasts. Purple = pins/markers, green = active state and screen handles.
 
 - **NGF similarity** (squared dot of normalized gradients) is the core choice: it is
   blind to contrast inversion, false colour and emboss, and flat glitch noise carries

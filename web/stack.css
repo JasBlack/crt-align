@@ -1,17 +1,16 @@
 /* Stack mode: additions to app.css, same kit (keys, LEDs, LCD, purple = markers). */
 
-/* tool switch in the top bar: crt | stack */
+/* tool switch in the top bar: crt | stack, same as every .seg (green LED on the active one) */
 .appmode a {
-  height: 26px; border-radius: 8px; padding: 0 9px; display: flex; align-items: center; gap: 5px;
-  font: 600 9.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
-  text-decoration: none; white-space: nowrap;
+  height: 26px; border-radius: 8px; padding: 0 8px; display: flex; align-items: center; gap: 5px;
+  font: 500 9.5px var(--mono); letter-spacing: .04em; color: var(--muted); text-decoration: none; white-space: nowrap;
 }
 .appmode a::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: transparent; }
 .appmode a:hover { color: var(--text); }
 .appmode a[aria-current="page"] {
   background: var(--key); color: var(--text); box-shadow: 0 1px 0 var(--keyshadow), 0 0 0 1px var(--keyline);
 }
-.appmode a[aria-current="page"]::before { background: var(--accent2); box-shadow: 0 0 4px color-mix(in srgb, var(--accent2) 90%, transparent); }
+.appmode a[aria-current="page"]::before { background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent); }
 
 /* drop zone */
 .dropzone {
@@ -20,7 +19,7 @@
   text-align: left; box-shadow: inset 0 1px 3px var(--press);
 }
 .dropzone:hover, .dropzone.drag { border-color: var(--accent2); border-style: solid; }
-.dropzone span:not(.led) { font: 600 10px var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+.dropzone span:not(.led) { font: 500 11px var(--mono); }
 .dropzone small { grid-column: 2; color: var(--muted); font-size: 9.5px; }
 .dropzone.loaded .led { background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent); }
 
@@ -68,11 +67,18 @@
 .shot .ref { position: absolute; top: 7px; right: 8px; font: 700 8px var(--mono); letter-spacing: .12em; color: #fff; background: var(--accent2); padding: 0 4px; border-radius: 3px; }
 .shot .cost { position: absolute; top: 40px; right: 8px; font: 700 8px var(--mono); color: #0b0b0c; background: var(--accent); padding: 0 4px; border-radius: 3px; }
 
-.stackmode .stage { background-image: radial-gradient(rgba(var(--dot), .07) 1px, transparent 1.3px); background-size: 24px 24px; }
+/* right console column (crop + export) */
+.stackmode .col.right { width: 282px; }
+@media (max-width: 1150px) { .stackmode .col { width: 228px; } .stackmode .col.right { width: 250px; } .status { display: none; } }
 .stackmode .stage[data-tool="anchor"], .stackmode .stage[data-tool="nudge"] { cursor: crosshair; }
 .stage[data-tool="nudge"].panning { cursor: grabbing; }
 
 @media (max-width: 860px) {
+  .stackmode .col, .stackmode .col.right { width: auto; }
   .shot { width: 78px; }
   .shot canvas { height: 48px; }
+}
+@media (max-width: 860px) {
+  .stackmode .body { flex-direction: column; }
+  .stackmode .centre { order: -1; }   /* stage first */
 }
