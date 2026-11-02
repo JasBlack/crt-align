@@ -68,25 +68,30 @@ export function blur(img, sigma) {
   for (let i = -r; i <= r; i++) s += (k[i + r] = Math.exp(-(i * i) / (2 * sigma * sigma)));
   for (let i = 0; i < k.length; i++) k[i] /= s;
   const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+  // horizontal: clamped taps only near the ends of each row
   for (let y = 0; y < h; y++) {
     const row = y * w;
     for (let x = 0; x < w; x++) {
       let acc = 0;
-      for (let i = -r; i <= r; i++) {
-        const xx = x + i < 0 ? 0 : x + i >= w ? w - 1 : x + i;
-        acc += data[row + xx] * k[i + r];
+      if (x >= r && x < w - r) {
+        const b = row + x - r;
+        for (let i = 0; i < k.length; i++) acc += data[b + i] * k[i];
+      } else {
+        for (let i = -r; i <= r; i++) {
+          const xx = x + i < 0 ? 0 : x + i >= w ? w - 1 : x + i;
+          acc += data[row + xx] * k[i + r];
+        }
       }
       tmp[row + x] = acc;
     }
   }
+  // vertical: accumulate whole rows (cache friendly), same clamping as before
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let acc = 0;
-      for (let i = -r; i <= r; i++) {
-        const yy = y + i < 0 ? 0 : y + i >= h ? h - 1 : y + i;
-        acc += tmp[yy * w + x] * k[i + r];
-      }
-      out[y * w + x] = acc;
+    const orow = y * w;
+    for (let i = -r; i <= r; i++) {
+      const yy = y + i < 0 ? 0 : y + i >= h ? h - 1 : y + i;
+      const kk = k[i + r], srow = yy * w;
+      for (let x = 0; x < w; x++) out[orow + x] += tmp[srow + x] * kk;
     }
   }
   return { data: out, w, h };

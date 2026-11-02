@@ -1,8 +1,57 @@
-# CRT Align
+# Align
 
-Align a filmed CRT capture (photo or video) back onto the original image or video it
-was made from, so the glitched capture drops on top of the source as a
-pixel-registered glitch layer.
+Two alignment tools in one browser app (switch with **crt | stack** in the top bar):
+
+- **crt** (`web/index.html`): align a filmed CRT capture (photo or video) back onto the
+  original image or video it was made from, so the glitched capture drops on top of
+  the source as a pixel-registered glitch layer.
+- **stack** (`web/stack.html`): line up a whole set of photos on one anchor (a
+  building, the sun, a face, any point) and see how big a 16:9, 9:16, 1:1, 4:5 ... crop
+  every photo can still fill. Exports the crops as a ZIP.
+
+## Stack mode
+
+1. Drop a set of photos (many at once). The first one is the **reference**: the frame
+   everything lines up to. Double-click any photo in the strip to make it the
+   reference instead (works after aligning too, no re-run needed).
+2. Pick how to find the anchor:
+   - **subject**: matches the detail of the scene. Click the anchor on the reference;
+     drag a box round the subject to match only that (ignores sky, cranes, traffic).
+     *move photos by*: **shift** (anchor lands on the same spot, nothing turns or
+     scales), **+ turn, scale**, or **perspective** (a building face lines up exactly).
+   - **sun / light**: the brightest spot in every photo goes on the same point.
+   - **by hand**: click the same point in every photo (it jumps to the next one).
+     Works for faces and anything else.
+3. **Align all**. Check with the views: *mean* (average of every photo: sharp means
+   lined up), *onion*, *diff*, and *space* to flick through. Fix any photo with
+   **nudge** (drag, or alt + arrows for 1 px), or click its anchor in *as shot* view.
+4. **Crop**: every format shows the largest size every included photo can fill
+   (native = no photo upscaled). Anchor sits in the *centre*, on a *third*, or
+   wherever gives the *biggest* frame. The green badge on a photo ("+24%") says how much
+   bigger the crop gets if you leave that photo out (X).
+5. **Export**: all crops as a ZIP (plus `align.json` with the maps), or just one.
+
+How it lines up: plain-JS ORB-style features (Harris corners on a pyramid, rotated
+BRIEF; brightness-only tests, so exposure and white balance don't matter), mutual
+ratio-test matching, RANSAC homography, then sub-pixel NCC refinement on the chosen
+surface. In scenes with depth it finds up to three surfaces and keeps the one that
+matches the patch round the anchor, so the anchor lands exactly in every mode. Several
+photos align in parallel in Web Workers.
+
+Accuracy (`bench/stack/`, synthetic handheld bursts with known truth, 2400 px wide,
+up to 12° rotation, perspective, exposure and colour changes): worst error 0.05 to
+0.15 px in perspective mode, sun centred within 0.4 px. Building corner seen from moving
+camera positions: the surface under the anchor lands within 0.6 px; the *other* wall
+shows parallax that no single map can remove (see Limits in CLAUDE.md).
+
+```bash
+python bench/stack/make_burst.py . OUT && for d in OUT/*; do python bench/stack/prep.py $d; done
+node bench/stack/run.mjs OUT/petronas OUT/chicago_hard OUT/sun
+python bench/stack/make_corner.py OUT/corner && python bench/stack/prep.py OUT/corner
+node bench/stack/corner.mjs OUT/corner
+```
+
+## CRT mode
 
 Two tools live here:
 

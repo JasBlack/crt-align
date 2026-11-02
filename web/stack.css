@@ -1,0 +1,78 @@
+/* Stack mode: additions to app.css, same kit (keys, LEDs, LCD, purple = markers). */
+
+/* tool switch in the top bar: crt | stack */
+.appmode a {
+  height: 26px; border-radius: 8px; padding: 0 9px; display: flex; align-items: center; gap: 5px;
+  font: 600 9.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+  text-decoration: none; white-space: nowrap;
+}
+.appmode a::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+.appmode a:hover { color: var(--text); }
+.appmode a[aria-current="page"] {
+  background: var(--key); color: var(--text); box-shadow: 0 1px 0 var(--keyshadow), 0 0 0 1px var(--keyline);
+}
+.appmode a[aria-current="page"]::before { background: var(--accent2); box-shadow: 0 0 4px color-mix(in srgb, var(--accent2) 90%, transparent); }
+
+/* drop zone */
+.dropzone {
+  display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; row-gap: 2px;
+  padding: 12px 12px; border-radius: 10px; border: 1px dashed var(--keyline); background: var(--well);
+  text-align: left; box-shadow: inset 0 1px 3px var(--press);
+}
+.dropzone:hover, .dropzone.drag { border-color: var(--accent2); border-style: solid; }
+.dropzone span:not(.led) { font: 600 10px var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+.dropzone small { grid-column: 2; color: var(--muted); font-size: 9.5px; }
+.dropzone.loaded .led { background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent); }
+
+.refrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10px; }
+.refname { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.refrow .emore { flex-basis: 100%; }
+
+/* aspect table: one key per format, size readout on the right */
+.aspects { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.aspect {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 7px;
+  padding: 5px 8px 6px; border-radius: 8px; border: 1px solid var(--keyline); background: var(--key);
+  box-shadow: 0 1.5px 0 var(--keyshadow); text-align: left; min-width: 0;
+}
+.aspect .shape { grid-row: span 2; width: 18px; height: 18px; display: grid; place-items: center; }
+.aspect .shape i { display: block; border: 1.5px solid var(--muted); border-radius: 2px; }
+.aspect b { font: 600 10.5px var(--mono); }
+.aspect small { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aspect:hover { border-color: var(--muted); }
+.aspect[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.aspect[aria-pressed="true"] .shape i { border-color: var(--accent); }
+.aspect.none small { color: var(--red); }
+
+/* film strip under the stage */
+.strip {
+  display: flex; align-items: center; gap: 12px; flex: none;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line); padding: 8px 8px 8px 8px;
+}
+.film { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: thin; scrollbar-color: var(--keyline) transparent; }
+.film:empty::after { content: "no photos"; color: var(--muted); font-size: 9.5px; letter-spacing: .3em; text-transform: uppercase; padding: 20px 8px; }
+.shot {
+  position: relative; flex: none; width: 92px; padding: 4px 4px 5px; border-radius: 9px;
+  border: 1px solid var(--keyline); background: var(--key); box-shadow: 0 2px 0 var(--keyshadow);
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+}
+.shot canvas { display: block; width: 100%; height: 56px; border-radius: 6px; background: var(--well); }
+.shot .meta { display: flex; align-items: center; gap: 5px; font-size: 8.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 0; }
+.shot .meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shot .led.g { background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent); }
+.shot .led.r { background: var(--red); box-shadow: 0 0 4px color-mix(in srgb, var(--red) 80%, transparent); }
+.shot .led.p { background: var(--accent2); }
+.shot[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 2px 0 var(--keyshadow), inset 0 0 0 1px var(--accent); }
+.shot.out { opacity: .42; }
+.shot .num { position: absolute; top: 7px; left: 8px; font: 700 9px var(--mono); color: #fff; text-shadow: 0 1px 2px #000; }
+.shot .ref { position: absolute; top: 7px; right: 8px; font: 700 8px var(--mono); letter-spacing: .12em; color: #fff; background: var(--accent2); padding: 0 4px; border-radius: 3px; }
+.shot .cost { position: absolute; top: 40px; right: 8px; font: 700 8px var(--mono); color: #0b0b0c; background: var(--accent); padding: 0 4px; border-radius: 3px; }
+
+.stackmode .stage { background-image: radial-gradient(rgba(var(--dot), .07) 1px, transparent 1.3px); background-size: 24px 24px; }
+.stackmode .stage[data-tool="anchor"], .stackmode .stage[data-tool="nudge"] { cursor: crosshair; }
+.stage[data-tool="nudge"].panning { cursor: grabbing; }
+
+@media (max-width: 860px) {
+  .shot { width: 78px; }
+  .shot canvas { height: 48px; }
+}

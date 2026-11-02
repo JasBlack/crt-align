@@ -1,6 +1,13 @@
-# CLAUDE.md — CRT Align
+# CLAUDE.md — Align (CRT + Stack)
 
 ## What this is
+
+One browser app, two tools (top-bar switch **crt | stack**):
+
+- **Stack** (`web/stack.html`): line up a set of photos on one anchor (building, sun,
+  face, any point), compute the largest crop of each aspect every photo can fill,
+  export the crops as a ZIP. See "Stack mode" below.
+- **CRT** (`web/index.html`), described next.
 
 Aligns a **filmed CRT / analogue-video-synth capture** (photo or video) back onto the
 **original image or video** it was made from, so the glitched capture can be laid over
@@ -46,6 +53,19 @@ web/                       the browser app (deploy this folder as-is)
     sync.js                temporal sync candidates from per-frame luma signatures
     worker.js              runs align/refine/score off the main thread
   sample/                  sample pair + precomputed alignment shown on first open
+  stack.html / stack.js    stack mode page + UI controller (load, anchor, align pool,
+                           crop panel, film strip, export ZIP)
+  stack.css                stack-mode additions to the kit (also the crt|stack switch)
+  stackgl.js               WebGL2 renderer for stack mode (homography per photo, mean, diff)
+  zip.js                   tiny store-only ZIP writer
+  core/features.js         ORB-style detector/descriptor + mutual ratio matching
+  core/geom.js             3x3 maps, DLT homography, similarity, RANSAC, polygon
+                           clipping, crop solver (bestRect)
+  core/stack.js            stack engine: prepare, alignPair (surface at anchor, NCC
+                           refinement, reduce to shift/similarity), brightestSpot,
+                           alignStack (+ chaining), cropReport, leaveOneOut
+  core/stackworker.js      worker for stack mode (several run in parallel)
+bench/stack/               stack-mode synthetic bursts, sun set, building corner + runners
 bench/                     accuracy benchmark + helpers (see below)
 crt_align.py               Python CLI (older algorithm)
 requirements.txt           CLI deps
@@ -133,6 +153,43 @@ Limits / not done:
   That strip doesn't exist in the capture: Pin corners eases it in, Exact leaves it
   transparent. There is no way to "match" it.
 - Not tested in Safari / Firefox.
+
+## Stack mode
+
+Works (verified in Node bench + headless Chromium end to end, incl. ZIP export):
+- subject / sun / by-hand anchors; shift, +turn/scale, perspective models
+- subject box (ROI), reference switch after aligning (maps re-based, no re-run),
+  include/exclude, remove, nudge (drag / alt+arrows), pin a photo's anchor in as-shot view
+- views aligned / onion / diff / mean / crop / as shot; flick playback (space)
+- crop for 10 aspects, centre / thirds / biggest, tighten slider, native output size
+  (no photo upscaled), per-photo "+N%" leave-one-out badge
+- export ZIP of crops (jpg/png, native/1080/2160) + align.json; single crop; fit JSON
+- accuracy: 0.05–0.15 px worst on synthetic bursts; browser export within ~0.1 px of truth
+
+Limits / next:
+- **Parallax**: one projective map per photo. In scenes with depth only the surface
+  under the anchor lines up exactly; other surfaces drift (building corner from two spots:
+  the second wall moves). Next step: an optional smooth mesh on top of the homography
+  (like the CRT mesh) fitted to matches from all surfaces.
+- **Video input** not done yet (photos only). Plan: treat a clip as a sequence, track
+  the anchor frame to frame (same pairwise matcher), export a stabilised MP4 via mediabunny.
+- **Faces**: by-hand only. No face detector (would need a model download).
+- HEIC decodes only where the browser can (Safari).
+- Prep is ~0.7 s per photo per worker (up to 4 workers).
+
+Gotchas:
+- All maps are reference px -> photo px (full res, after EXIF rotation). The shader
+  samples photo i at H_i(p); footprints are H_i^-1 of the photo rectangle.
+- shift / +turn,scale are *reductions* of a full homography at the anchor
+  (`reduceTo`), not fits of their own: fitting a similarity to a perspective view put
+  the anchor 20-100 px off.
+- `surfaceAtAnchor` peels up to 3 homographies off the matches and keeps the one with
+  the best NCC on the patch round the anchor; refinement then only uses that surface's
+  points (otherwise it drifts back onto the busier surface).
+- `blur()` in image.js was rewritten for speed (row-wise vertical pass); output is
+  identical to the old one to 6e-8.
+- OpenCV 5's `phaseCorrelate` reports +0.5 px in y even for identical images; don't
+  trust it for sub-pixel checks.
 
 ## Important decisions / gotchas
 
