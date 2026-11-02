@@ -171,23 +171,29 @@ button { cursor: pointer; }
 .ebig:disabled, .ebtn:disabled { opacity: .4; cursor: default; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* chips are small keys: the chosen one is latched down (darker, pressed in, text lit)
+   with a green LED, like the segmented switches. No coloured outline. */
 .chip {
-  position: relative; height: 28px; padding: 0 12px; border-radius: 15px;
+  position: relative; height: 28px; padding: 0 12px 0 22px; border-radius: 15px;
   border: 1px solid var(--keyline); background: var(--key); color: var(--muted);
+  box-shadow: 0 1.5px 0 var(--keyshadow);
   font: 500 11px var(--mono); white-space: nowrap;
 }
+.chip::before {
+  content: ""; position: absolute; left: 10px; top: 50%; margin-top: -2.5px;
+  width: 5px; height: 5px; border-radius: 50%; background: transparent;
+}
+.chip.lp::before { background: var(--ledoff); }
 .chip:hover { color: var(--text); }
 .chip[aria-pressed="true"] {
-  color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--text); background: var(--keyon); transform: translateY(1px);
+  box-shadow: inset 0 1px 3px var(--press);
 }
-.chip.lp { padding-left: 22px; }
-.chip.lp::before {
-  content: ""; position: absolute; left: 10px; top: 50%; margin-top: -2.5px;
-  width: 5px; height: 5px; border-radius: 50%; background: var(--ledoff);
-}
-.chip.lp[aria-pressed="true"]::before {
+.chip[aria-pressed="true"]::before {
   background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent);
 }
+.chip:not([aria-pressed]) { padding-left: 12px; }
+.chip:not([aria-pressed])::before { display: none; }
 .chip:disabled { opacity: .4; cursor: default; }
 
 .emore {

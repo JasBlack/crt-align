@@ -21,6 +21,8 @@
 .dropzone:hover, .dropzone.drag { border-color: var(--accent2); border-style: solid; }
 .dropzone span:not(.led) { font: 500 11px var(--mono); }
 .dropzone small { grid-column: 2; color: var(--muted); font-size: 9.5px; }
+.photokeys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.photokeys .ebtn { padding: 0 4px; }
 .dropzone.loaded .led { background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent); }
 
 .refrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10px; }
@@ -39,8 +41,9 @@
 .aspect b { font: 600 10.5px var(--mono); }
 .aspect small { font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .aspect:hover { border-color: var(--muted); }
-.aspect[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.aspect[aria-pressed="true"] .shape i { border-color: var(--accent); }
+.aspect[aria-pressed="true"] { background: var(--keyon); transform: translateY(1px); box-shadow: inset 0 1px 3px var(--press); }
+.aspect[aria-pressed="true"] small { color: var(--text); }
+.aspect[aria-pressed="true"] .shape i { border-color: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 60%, transparent); }
 .aspect.none small { color: var(--red); }
 
 /* film strip under the stage */
@@ -61,9 +64,17 @@
 .shot .led.g { background: var(--accent); box-shadow: 0 0 4px color-mix(in srgb, var(--accent) 90%, transparent); }
 .shot .led.r { background: var(--red); box-shadow: 0 0 4px color-mix(in srgb, var(--red) 80%, transparent); }
 .shot .led.p { background: var(--accent2); }
-.shot[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 2px 0 var(--keyshadow), inset 0 0 0 1px var(--accent); }
+.shot { cursor: pointer; }
+.shot:hover { border-color: var(--muted); }
+.shot[aria-selected="true"] { background: var(--keyon); border-color: var(--muted); transform: translateY(1px); box-shadow: inset 0 1px 3px var(--press); }
+.shot[aria-selected="true"] .num { background: var(--accent); color: #0b0b0c; text-shadow: none; }
+.shot .x {
+  margin-left: auto; flex: none; width: 16px; height: 16px; padding: 0 0 1px; border: 0; border-radius: 50%;
+  background: none; color: var(--muted); font: 500 11px/1 var(--mono); display: grid; place-items: center;
+}
+.shot .x:hover { color: #fff; background: var(--red); }
 .shot.out { opacity: .42; }
-.shot .num { position: absolute; top: 7px; left: 8px; font: 700 9px var(--mono); color: #fff; text-shadow: 0 1px 2px #000; }
+.shot .num { position: absolute; top: 7px; left: 8px; font: 700 9px var(--mono); color: #fff; text-shadow: 0 1px 2px #000; padding: 0 4px; border-radius: 3px; }
 .shot .ref { position: absolute; top: 7px; right: 8px; font: 700 8px var(--mono); letter-spacing: .12em; color: #fff; background: var(--accent2); padding: 0 4px; border-radius: 3px; }
 .shot .cost { position: absolute; top: 40px; right: 8px; font: 700 8px var(--mono); color: #0b0b0c; background: var(--accent); padding: 0 4px; border-radius: 3px; }
 

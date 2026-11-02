@@ -373,6 +373,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'n') setTool('nudge');
   else if (k === 'f') { fitView(); draw(); }
   else if (k === 'x') toggleInclude();
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && e.shiftKey) clearAll();
   else if (e.key === 'Delete' || e.key === 'Backspace') removeCurrent();
 });
 window.addEventListener('keyup', e => { if (e.key === ' ') spaceDown = false; });
@@ -646,18 +647,51 @@ function toggleInclude() {
   recompute(); renderStrip(); refreshAll(); draw();
 }
 
-function removeCurrent() {
-  if (!CUR() || S.busy) return;
-  const it = CUR();
+function removeCurrent() { removeAt(S.cur); }
+
+function removeAt(i) {
+  const it = S.items[i];
+  if (!it || S.busy) return;
   G.free(it.tex); it.prev?.close?.();
-  const wasRef = S.cur === S.ref;
-  S.items.splice(S.cur, 1);
+  const wasRef = i === S.ref;
+  S.items.splice(i, 1);
+  if (!S.items.length) { resetSet(); return; }
   if (wasRef) {
     S.ref = 0; S.items.forEach(x => { x.map = null; x.res = null; x.nudge = null; }); S.aligned = false; S.anchor = null; S.roi = null;
-  } else if (S.cur < S.ref) S.ref--;
-  S.cur = Math.min(S.cur, S.items.length - 1);
-  if (S.items.length) S.items[S.ref].res = { ok: true, status: 'reference' };
+    lcd(`${it.name} removed. it was the reference, so ${S.items[0].name} is now: align again.`);
+  } else {
+    if (i < S.ref) S.ref--;
+    lcd(`${it.name} removed. ${S.items.length} photo${S.items.length > 1 ? 's' : ''} left.`);
+  }
+  if (i < S.cur || S.cur >= S.items.length) S.cur = Math.max(0, S.cur - 1);
+  S.items[S.ref].res = { ok: true, status: 'reference' };
   recompute(); fitView(); renderStrip(); refreshAll(); draw();
+}
+
+// empty the set: back to the drop screen, settings kept
+function resetSet() {
+  for (const it of S.items) { G.free(it.tex); it.prev?.close?.(); }
+  if (S.playing) togglePlay();
+  Object.assign(S, { items: [], ref: 0, cur: 0, anchor: null, roi: null, aligned: false, report: null, costs: [] });
+  armClear(false);
+  $('out-line').textContent = '\u2013';
+  recompute(); fitView(); renderStrip(); refreshAll(); draw();
+  lcd('cleared. drop a set of photos to begin.');
+}
+
+// "clear all" asks once: the first press arms it for a few seconds
+let clearTimer = 0;
+function armClear(on) {
+  clearTimeout(clearTimer);
+  const b = $('btn-clear');
+  b.dataset.armed = on ? '1' : '';
+  b.textContent = on ? 'sure? clear' : 'clear all';
+  b.classList.toggle('nudge', on);
+  if (on) clearTimer = setTimeout(() => armClear(false), 3000);
+}
+function clearAll() {
+  if (S.busy || !S.items.length) return;
+  if ($('btn-clear').dataset.armed) resetSet(); else { armClear(true); lcd(`press clear all again to remove all ${S.items.length} photos.`); }
 }
 
 function select(i) {
@@ -725,15 +759,19 @@ function renderAspects() {
 
 function renderStrip() {
   const film = $('film');
-  while (film.children.length > S.items.length) film.lastChild.remove();
+  const ids = new Set(S.items.map(it => String(it.id)));
+  for (const el of [...film.children]) if (!ids.has(el.dataset.id)) el.remove();
   S.items.forEach((it, i) => {
     let el = film.children[i];
     if (!el || el.dataset.id !== String(it.id)) {
-      el = document.createElement('button');
-      el.type = 'button'; el.className = 'shot'; el.setAttribute('role', 'option'); el.dataset.id = it.id;
-      el.innerHTML = '<span class="num"></span><span class="ref" hidden>REF</span><span class="cost" hidden></span><div class="meta"><span class="led"></span><span class="nm"></span></div>';
+      el = document.createElement('div');
+      el.className = 'shot'; el.setAttribute('role', 'option'); el.tabIndex = 0; el.dataset.id = it.id;
+      el.innerHTML = '<span class="num"></span><span class="ref" hidden>REF</span><span class="cost" hidden></span><div class="meta"><span class="led"></span><span class="nm"></span><button type="button" class="x" aria-label="Remove this photo" title="Remove this photo">\u00d7</button></div>';
       el.prepend(it.thumb);
-      el.addEventListener('click', () => select(S.items.findIndex(x => x.id === it.id)));
+      const idx = () => S.items.findIndex(x => x.id === it.id);
+      el.addEventListener('click', () => select(idx()));
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') select(idx()); });
+      el.querySelector('.x').addEventListener('click', e => { e.stopPropagation(); removeAt(idx()); });
       el.addEventListener('dblclick', () => setReference(S.items.findIndex(x => x.id === it.id)));
       if (film.children[i]) film.insertBefore(el, film.children[i]); else film.append(el);
     }
@@ -889,6 +927,7 @@ function refreshAll() {
   $('btn-toggle').disabled = !has || S.cur === S.ref;
   $('btn-toggle').textContent = CUR() && !CUR().include ? 'put back in' : 'leave out';
   $('btn-remove').disabled = !has;
+  $('btn-clear').disabled = !has || S.busy;
   $('btn-align').disabled = !two || S.busy;
   $('btn-align').innerHTML = `<span aria-hidden="true">&#x25B6;</span> ${S.method === 'manual' ? 'apply clicks' : 'align all'}`;
   $('btn-reset-nudge').hidden = !(CUR()?.nudge);
@@ -972,6 +1011,7 @@ $('btn-align').addEventListener('click', alignAll);
 $('btn-make-ref').addEventListener('click', () => setReference(S.cur));
 $('btn-toggle').addEventListener('click', toggleInclude);
 $('btn-remove').addEventListener('click', removeCurrent);
+$('btn-clear').addEventListener('click', clearAll);
 $('btn-clear-roi').addEventListener('click', () => { S.roi = null; markStale('subject box cleared: press align all.'); refreshAll(); draw(); });
 $('btn-reset-nudge').addEventListener('click', () => { if (CUR()) { CUR().nudge = null; recompute(); refreshAll(); draw(); } });
 $('btn-export').addEventListener('click', () => exportAll(false));
