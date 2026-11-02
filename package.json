@@ -1,0 +1,10 @@
+{
+  "name": "crt-align",
+  "private": true,
+  "type": "module",
+  "description": "Align filmed CRT captures onto their source image/video. Browser app in web/, Python CLI in crt_align.py.",
+  "scripts": {
+    "serve": "npx -y serve web -l 5140",
+    "bench": "node bench/run_new.mjs"
+  }
+}

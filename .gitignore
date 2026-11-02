@@ -1,0 +1,39 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# --- Generated outputs ---
+aligned/
+*_aligned.png
+*_aligned.mp4
+*_overlay.jpg
+*_points.jpg
+
+# --- Scratch / QC files ---
+probe_*.jpg
+qc_*.jpg
+
+# --- Large sample videos (too big for git; keep locally / share out-of-band) ---
+# Still-image test pairs (base_*.jpg, IDG_*.JPG, new_00367_.png) ARE kept in the
+# repo as lightweight fixtures so a new dev can run the image examples immediately.
+*.mp4
+
+# --- Secrets (none today, but never commit these) ---
+.env
+*.key
+*.pem
+
+# local test media for the web app
+web/_test/

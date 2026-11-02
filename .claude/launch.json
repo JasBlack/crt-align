@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "crt-align",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "web", "-l", "5140"],
+      "port": 5140
+    }
+  ]
+}
