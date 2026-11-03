@@ -1,11 +1,11 @@
 # Align
 
-Two alignment tools in one browser app (switch with **crt | stack** in the top bar):
+Two alignment tools in one browser app at https://align.jas.black (switch with **stack | crt** in the top bar):
 
-- **crt** (`web/index.html`): align a filmed CRT capture (photo or video) back onto the
+- **crt** (`web/crt.html`): align a filmed CRT capture (photo or video) back onto the
   original image or video it was made from, so the glitched capture drops on top of
   the source as a pixel-registered glitch layer.
-- **stack** (`web/stack.html`): line up a whole set of photos on one anchor (a
+- **stack** (`web/index.html`, the home page): line up a whole set of photos on one anchor (a
   building, the sun, a face, any point) and see how big a 16:9, 9:16, 1:1, 4:5 ... crop
   every photo can still fill. Exports the crops as a ZIP.
 
@@ -29,7 +29,11 @@ Two alignment tools in one browser app (switch with **crt | stack** in the top b
    (native = no photo upscaled). Anchor sits in the *centre*, on a *third*, or
    wherever gives the *biggest* frame. The green badge on a photo ("+24%") says how much
    bigger the crop gets if you leave that photo out (X).
-5. **Export**: all crops as a ZIP (plus `align.json` with the maps), or just one.
+5. **Export**: all crops as a ZIP (plus `align.json` with the maps), or just one. Or pick
+   **mp4**: every photo becomes frames of one video, in strip order; set the frame rate
+   and how many frames each photo holds (space previews that timing). Use the **frame**
+   tool (C) to move or resize the crop on screen first; it can't leave the area every
+   photo covers.
 
 How it lines up: plain-JS ORB-style features (Harris corners on a pyramid, rotated
 BRIEF; brightness-only tests, so exposure and white balance don't matter), mutual

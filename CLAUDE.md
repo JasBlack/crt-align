@@ -2,12 +2,13 @@
 
 ## What this is
 
-One browser app, two tools (top-bar switch **crt | stack**):
+One browser app, two tools (top-bar switch **stack | crt**):
 
-- **Stack** (`web/stack.html`): line up a set of photos on one anchor (building, sun,
-  face, any point), compute the largest crop of each aspect every photo can fill,
-  export the crops as a ZIP. See "Stack mode" below.
-- **CRT** (`web/index.html`), described next.
+- **Stack** (`web/index.html`, the home page): line up a set of photos on one anchor
+  (building, sun, face, any point), compute the largest crop of each aspect every photo
+  can fill, export the crops as a ZIP or as an MP4 with the photos as frames. See
+  "Stack mode" below. `web/stack.html` only redirects old links to `./`.
+- **CRT** (`web/crt.html`), described next.
 
 Aligns a **filmed CRT / analogue-video-synth capture** (photo or video) back onto the
 **original image or video** it was made from, so the glitched capture can be laid over
@@ -34,7 +35,7 @@ Two implementations:
 
 ```
 web/                       the browser app (deploy this folder as-is)
-  index.html               page shell (full HTML document)
+  crt.html                 CRT page shell (full HTML document)
   app.css                  styles (family tokens, dark + light; stage stays dark)
   family.js                JAS.BLACK family behaviour, verbatim from the kit
   favicon.svg, *.png, site.webmanifest, og.jpg   icons + link preview
@@ -55,8 +56,8 @@ web/                       the browser app (deploy this folder as-is)
     sync.js                temporal sync candidates from per-frame luma signatures
     worker.js              runs align/refine/score off the main thread
   sample/                  sample pair + precomputed alignment shown on first open
-  stack.html / stack.js    stack mode page + UI controller (load, anchor, align pool,
-                           crop panel, film strip, export ZIP)
+  index.html / stack.js    stack mode page (home) + UI controller (load, anchor, align
+                           pool, crop panel + frame tool, film strip, export ZIP / MP4)
   stack.css                stack-mode additions to the kit (also the crt|stack switch)
   stackgl.js               WebGL2 renderer for stack mode (homography per photo, mean, diff)
   zip.js                   tiny store-only ZIP writer
@@ -168,6 +169,15 @@ Works (verified in Node bench + headless Chromium end to end, incl. ZIP export):
 - crop for 10 aspects, centre / thirds / biggest, tighten slider, native output size
   (no photo upscaled), per-photo "+N%" leave-one-out badge
 - export ZIP of crops (jpg/png, native/1080/2160) + align.json; single crop; fit JSON
+- **frame tool** (C): drag the crop to move it, drag a corner to resize (shape locked);
+  clamped to the area every photo covers; "back to the automatic crop" undoes it. A
+  hand-placed crop is kept per shape while it still fits; changing shape, placement or
+  tighten drops it.
+- **mp4 export**: every included photo in strip order, each held N frames (1-30) at
+  12/24/25/30 fps, constant frame rate (same picture added N times), H.264 via
+  mediabunny (codec fallback vp9/av1/hevc). Even sizes, long side capped at 3840.
+  Space-bar flick previews at the export timing. Verified with ffprobe: 6 photos x 3 =
+  18 frames, 1.50 s at 12 fps, photo-to-photo drift <= 0.07 px.
 - accuracy: 0.05–0.15 px worst on synthetic bursts; browser export within ~0.1 px of truth
 
 Limits / next:
@@ -249,7 +259,7 @@ Gotchas:
 - `optimize.js` `tick()` yields to the UI only on the main thread; in the worker it is a
   no-op (background-tab timer throttling made solves crawl).
 - The shader in `gl/renderer.js` duplicates `model.js mapPoint`; change both together.
-- `web/index.html` is a full document (needed for GitHub Pages). The artifact publisher
+- `web/index.html` (stack) and `web/crt.html` are full documents (needed for GitHub Pages). The artifact publisher
   wraps pages in its own skeleton; the nested tags are tolerated by browsers.
 - WebGL renderer uses `preserveDrawingBuffer: true` so screenshots/thumbnails capture it.
 - mediabunny `CanvasSink` pools canvases: upload a frame to GL before asking for more;

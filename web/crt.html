@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Align - JAS.BLACK</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Line a filmed CRT or video-synth capture back up on its original image or video, so the glitch drops on top as a pixel-registered layer. Runs in your browser; nothing is uploaded.">
+<meta name="theme-color" content="#121314">
+<link rel="canonical" href="https://align.jas.black/crt.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Align">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="JAS.BLACK">
+<meta property="og:title" content="Align - JAS.BLACK">
+<meta property="og:description" content="Line a filmed CRT or video-synth capture back up on its original image or video, so the glitch drops on top as a pixel-registered layer. Runs in your browser; nothing is uploaded.">
+<meta property="og:url" content="https://align.jas.black/crt.html">
+<meta property="og:image" content="https://align.jas.black/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Six handheld photos of a city skyline lined up on one building, with the shared 16:9 crop marked">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Align - JAS.BLACK">
+<meta name="twitter:description" content="Line a filmed CRT or video-synth capture back up on its original image or video, so the glitch drops on top as a pixel-registered layer. Runs in your browser; nothing is uploaded.">
+<meta name="twitter:image" content="https://align.jas.black/og.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="stack.css">
+</head>
+<body data-ui="dark" data-tool="align" data-version="0.2.0">
+<div id="app">
+
+  <header class="top">
+    <div class="brandbox"><span class="brand">ALIGN</span><span class="brand-ver"></span></div>
+    <nav class="seg appmode" aria-label="Tool">
+      <a href="./" title="Line up a set of photos on one anchor">stack</a>
+      <a href="crt.html" aria-current="page" title="Line a filmed CRT capture back up on its source">crt</a>
+    </nav>
+    <div class="status" aria-label="Status lights">
+      <span><i class="led" id="led-ready"></i>aligned</span>
+      <span><i class="led" id="led-busy"></i>busy</span>
+    </div>
+
+    <div class="topmid">
+      <div class="seg" id="modes" aria-label="View">
+        <button type="button" data-mode="0" title="The glitch layer you export (1)">layer</button>
+        <button type="button" data-mode="1" title="Layer over original, mixed (2)">blend</button>
+        <button type="button" data-mode="2" title="Difference (3)">diff</button>
+        <button type="button" data-mode="3" title="Checkerboard of original and layer (4)">checker</button>
+        <button type="button" data-mode="4" title="Split: drag the line (5)">swipe</button>
+        <button type="button" data-mode="5" title="The original's edges drawn over the layer (6)">edges</button>
+        <button type="button" data-mode="6" title="Original only (7)">original</button>
+      </div>
+      <label class="mixfader" id="mix-wrap" title="Mix between original and layer">
+        <span>mix</span>
+        <input type="range" class="fad" id="opacity" min="0" max="1" step="0.01" value="0.5">
+      </label>
+    </div>
+
+    <div class="topright">
+      <button type="button" class="key ico" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">&#x21B6;</button>
+      <button type="button" class="key ico" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">&#x21B7;</button>
+      <button type="button" class="key ico" id="fit" title="Fit to view (F)" aria-label="Fit to view">&#x2922;</button>
+      <button type="button" class="key ico" id="theme" title="Light / dark" aria-label="Switch light or dark">&#x25D1;</button>
+    </div>
+  </header>
+
+  <main class="body">
+    <aside class="col" id="steps" aria-label="Steps">
+
+      <section class="panel" id="p-source">
+        <h2><i>1</i><b>source</b><span>what to match?</span></h2>
+        <div class="slots">
+          <button class="slot" id="slot-orig" type="button" data-role="orig">
+            <span class="slot-well"><canvas class="thumb" width="168" height="112" aria-hidden="true"></canvas></span>
+            <span class="slot-label"><span class="led"></span>original</span>
+            <span class="slot-name">drop the source</span>
+            <span class="slot-meta"></span>
+          </button>
+          <button class="slot" id="slot-film" type="button" data-role="film">
+            <span class="slot-well"><canvas class="thumb" width="168" height="112" aria-hidden="true"></canvas></span>
+            <span class="slot-label"><span class="led"></span>filmed crt</span>
+            <span class="slot-name">drop the shot</span>
+            <span class="slot-meta"></span>
+          </button>
+        </div>
+        <div class="sub" id="video-block" hidden>
+          <div class="row-label" id="sync-label">sync offset</div>
+          <div class="sub" id="sync-field">
+            <div class="syncrow">
+              <button type="button" class="key short" id="off-minus" title="One frame earlier">&minus;1</button>
+              <span class="lcd mini" id="offset-val">+0.000 s</span>
+              <button type="button" class="key short" id="off-plus" title="One frame later">+1</button>
+            </div>
+            <button type="button" class="ebtn wide" id="btn-sync">auto sync</button>
+          </div>
+          <div class="keyrow" id="key-row" hidden>
+            <span class="led p"></span><span id="key-val">key frame</span>
+            <button type="button" class="emore" id="btn-goto-key">go to it &rsaquo;</button>
+          </div>
+          <p class="note">align and warp on one frame: that fit holds for every frame of the clip.</p>
+          <button type="button" class="chip" id="follow" aria-pressed="false" title="Re-detect the screen on every frame for handheld footage (experimental)">follow camera</button>
+        </div>
+        <button type="button" class="emore" id="btn-sample">reload the sample &rsaquo;</button>
+      </section>
+
+      <section class="panel" id="p-align">
+        <h2><i>2</i><b>align</b><span>lock it</span></h2>
+        <button type="button" class="ebig" id="btn-align"><span aria-hidden="true">&#x25B6;</span> align</button>
+        <div class="meterrow">
+          <div class="vu" id="vu" aria-hidden="true"></div>
+          <div class="score"><span id="score-val">&ndash;</span><small>edge match</small></div>
+        </div>
+        <div class="row-label">quality</div>
+        <div class="chips" id="quality">
+          <button type="button" class="chip" data-q="coarse">fast</button>
+          <button type="button" class="chip" data-q="medium">standard</button>
+          <button type="button" class="chip" data-q="fine">best</button>
+        </div>
+        <label class="row-label" for="stiffness">mesh</label>
+        <div class="faderow"><span>flexible</span><input type="range" class="fad" id="stiffness" min="-1.3" max="0.6" step="0.05" value="-0.52"><span>stiff</span></div>
+        <div class="kgrid">
+          <button type="button" class="ebtn" id="btn-refine" title="Re-fit the auto mesh from the current alignment, keeping screen edits and the hand warp">refine</button>
+          <button type="button" class="ebtn" id="btn-reset-mesh" title="Drop the auto mesh, keep the screen and the hand warp">reset mesh</button>
+        </div>
+      </section>
+
+      <section class="panel" id="p-fix">
+        <h2><i>3</i><b>fix</b><span>by hand</span></h2>
+        <div class="chips" id="tools">
+          <button type="button" class="chip lp" data-tool="view" title="Pan and zoom (V)">move</button>
+          <button type="button" class="chip lp" data-tool="pin" title="Puppet pins: drop and drag to warp the layer live (P)">pin</button>
+          <button type="button" class="chip lp" data-tool="raster" title="Drag the screen corners and edge bulges (R)">screen</button>
+        </div>
+        <p class="note" id="tool-note"></p>
+        <div class="handrow">
+          <button type="button" class="chip" id="btn-grid" aria-pressed="false" title="Lay a warp grid of pins over the frame (M)">mesh grid</button>
+          <span class="lcd mini" id="hand-count">no pins</span>
+        </div>
+        <label class="row-label" for="reach">pin reach <em id="reach-val">12%</em></label>
+        <input type="range" class="fad" id="reach" min="0.04" max="0.4" step="0.01" value="0.12" title="How far a pin's pull spreads, as a share of the frame height">
+        <button type="button" class="emore" id="btn-clear-pins" hidden>clear hand warp &rsaquo;</button>
+        <label class="row-label" for="inset">crop into screen <em id="inset-val">2.0%</em></label>
+        <input type="range" class="fad" id="inset" min="0" max="0.08" step="0.0025" value="0.02">
+        <div class="row-label">frame edges</div>
+        <div class="chips" id="edge-mode">
+          <button type="button" class="chip" data-edge="0" title="Corners pinned to the screen corners; content past the screen edge is eased in">pin corners</button>
+          <button type="button" class="chip" data-edge="1" title="Exact match everywhere; transparent where the screen showed nothing">exact</button>
+        </div>
+        <p class="note" id="band-note"></p>
+      </section>
+
+      <section class="panel" id="p-export">
+        <h2><i>4</i><b>export</b><span>keep it</span></h2>
+        <button type="button" class="ebtn ink wide" id="btn-export">save layer</button>
+        <div class="lcd mini" id="out-line">&ndash;</div>
+        <div class="kgrid">
+          <button type="button" class="ebtn" id="btn-save-json" title="Save the fit to reuse on another shot from the same setup">save alignment</button>
+          <button type="button" class="ebtn" id="btn-load-json">load alignment</button>
+        </div>
+      </section>
+
+      <p class="foot">everything runs in your browser. nothing is uploaded.</p>
+    </aside>
+
+    <section class="centre">
+      <div class="stage" id="stage" data-tool="view">
+        <canvas id="gl"></canvas>
+        <canvas id="overlay"></canvas>
+        <div class="stage-hint" id="stage-hint" hidden></div>
+        <div class="busy" id="busy" hidden>
+          <div class="busy-label" id="busy-label">aligning</div>
+          <div class="busy-bar"><i id="busy-bar"></i></div>
+          <div class="busy-log" id="busy-stage"></div>
+          <button type="button" class="ebtn" id="busy-cancel" hidden>cancel</button>
+        </div>
+      </div>
+
+      <div class="transport" id="transport" hidden>
+        <button type="button" class="roundkey" id="play" aria-label="Play">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="tl">
+          <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" aria-label="Time">
+          <span class="keymark" id="keymark" title="Key frame: the alignment and hand warp were set here" hidden></span>
+        </div>
+        <span class="timecode" id="timecode">00:00:00:00</span>
+      </div>
+
+      <div class="lcdrow">
+        <div class="lcd" id="lcd">ready.</div>
+        <div class="zoom" id="zoom-val">100%</div>
+      </div>
+      <div class="keys" id="shortcuts">
+        <span><kbd>1</kbd>&ndash;<kbd>7</kbd> view &middot; <kbd>V</kbd><kbd>P</kbd><kbd>R</kbd> tools &middot; <kbd>F</kbd> fit &middot; <kbd>space</kbd> pan &middot; <kbd>ctrl</kbd><kbd>Z</kbd> undo &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> frame</span>
+        <span>right-click a slider resets it</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</div>
+<input type="file" id="file-input" hidden>
+<input type="file" id="json-input" accept=".json,application/json" hidden>
+<script src="family.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

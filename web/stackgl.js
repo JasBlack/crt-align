@@ -47,8 +47,8 @@ void main() {
 }`;
 
 export class StackGL {
-  constructor(canvas, { preserve = true } = {}) {
-    const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: preserve, antialias: false, alpha: true });
+  constructor(canvas, { preserve = true, alpha = true } = {}) {
+    const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: preserve, antialias: false, alpha });
     if (!gl) throw new Error('This browser has no WebGL2. Use a current Chrome, Edge, Firefox or Safari.');
     this.gl = gl; this.canvas = canvas;
     const sh = (type, src) => {
@@ -82,6 +82,7 @@ export class StackGL {
     return t;
   }
   free(t) { if (t) this.gl.deleteTexture(t); }
+  release() { this.gl.getExtension('WEBGL_lose_context')?.loseContext(); }
 
   begin(width, height) {
     const gl = this.gl;

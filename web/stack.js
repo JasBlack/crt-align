@@ -1,10 +1,10 @@
 // Stack mode UI: load a set of photos, line them up on one anchor, find the crop
 // every photo can fill, export the crops.
 import { StackGL } from './stackgl.js';
-import { saveFile, prepareDownloads } from './media.js';
+import { saveFile, prepareDownloads, mb } from './media.js';
 import { lumaFromRGBA } from './core/image.js';
-import { FINE, brightestSpot, cropReport, leaveOneOut, footprint, pinAnchor, reduceToTranslation, ASPECTS } from './core/stack.js';
-import { I3, mul3, inv3, apply, translation, scaling, sane } from './core/geom.js';
+import { FINE, brightestSpot, cropReport, leaveOneOut, footprint, pinAnchor, reduceToTranslation, nativeScale, ASPECTS } from './core/stack.js';
+import { I3, mul3, inv3, apply, translation, scaling, sane, inside } from './core/geom.js';
 import { ZipWriter } from './zip.js';
 
 const $ = id => document.getElementById(id);
@@ -26,7 +26,7 @@ readTheme();
 
 // settings remembered between visits (versioned key, family rule)
 const PREFS = 'align-stack-v1';
-const PREF_KEYS = ['method', 'kind', 'aspect', 'place', 'size', 'fmt'];
+const PREF_KEYS = ['method', 'kind', 'aspect', 'place', 'size', 'fmt', 'fps', 'hold'];
 function loadPrefs() {
   try { return JSON.parse(localStorage.getItem(PREFS) || '{}') || {}; } catch { return {}; }
 }
@@ -42,11 +42,14 @@ const S = {
   aspect: '16:9', place: 'centre', zoom: 1, size: 'native', fmt: 'jpg',
   vp: null, rawVp: null, aligned: false, busy: false, cancel: false,
   report: null, costs: [], playing: false,
+  fps: 24, hold: 2,
+  manual: null,          // crop placed by hand: { aspect, rect } in reference px
 };
 {
   const p = loadPrefs(), ok = {
     method: ['match', 'bright', 'manual'], kind: ['translate', 'similarity', 'homography'],
-    aspect: ASPECTS.map(a => a.id), place: ['centre', 'thirds', 'free'], size: ['native', '1080', '2160'], fmt: ['jpg', 'png'],
+    aspect: ASPECTS.map(a => a.id), place: ['centre', 'thirds', 'free'], size: ['native', '1080', '2160'], fmt: ['jpg', 'png', 'mp4'], fps: [12, 24, 25, 30],
+    hold: [...Array(30).keys()].map(k => k + 1),
   };
   for (const k of PREF_KEYS) if (ok[k].includes(p[k])) S[k] = p[k];
   if (S.method === 'manual') S.tool = 'anchor';
@@ -219,8 +222,15 @@ function paintOverlay() {
       octx.moveTo(x0, y0 + (y1 - y0) * f); octx.lineTo(x1, y0 + (y1 - y0) * f);
     }
     octx.stroke(); octx.globalAlpha = 1;
+    if (S.tool === 'frame') {
+      octx.fillStyle = '#f4f5f7'; octx.strokeStyle = 'rgba(0,0,0,0.6)'; octx.lineWidth = 1 * dpr;
+      const hs = 4.5 * dpr;
+      for (const [x, y] of [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]) {
+        octx.fillRect(x - hs, y - hs, hs * 2, hs * 2); octx.strokeRect(x - hs, y - hs, hs * 2, hs * 2);
+      }
+    }
     if (S.view !== 'crop') {
-      const label = `${row.id}  ${outSize(row).join('×')}`;
+      const label = `${row.id}  ${outSize(row).join('\u00d7')}${row.manual ? '  by hand' : ''}`;
       octx.font = `600 ${10 * dpr}px "IBM Plex Mono", monospace`;
       const tw = octx.measureText(label).width + 12 * dpr;
       octx.fillStyle = 'rgba(11,11,12,0.85)'; octx.fillRect(x0, y0 - 18 * dpr, tw, 18 * dpr);
@@ -287,8 +297,44 @@ stage.addEventListener('pointerdown', e => {
     stage.classList.add('panning');
     return;
   }
+  if (S.tool === 'frame' && !isRaw()) {
+    const row = curRow();
+    if (!row?.rect) { toast('Align first: the crop appears once the photos are lined up.'); return; }
+    const r = row.rect, v = S.vp, hit = 12 * dpr;
+    const corners = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]];
+    const ci = corners.findIndex(([x, y]) => { const [bx, by] = toBuf(x, y, v); return Math.hypot(bx - pos[0], by - pos[1]) < hit; });
+    if (ci >= 0) drag = { kind: 'crop-size', fixed: corners[(ci + 2) % 4], sx: ci === 1 || ci === 2 ? 1 : -1, sy: ci >= 2 ? 1 : -1, start: { ...r } };
+    else if (p[0] >= r.x && p[0] <= r.x + r.w && p[1] >= r.y && p[1] <= r.y + r.h) { drag = { kind: 'crop-move', p, start: { ...r } }; stage.classList.add('panning'); }
+    return;
+  }
   if (S.tool === 'anchor') drag = { kind: 'anchor', pos, p, raw: isRaw() };
 });
+
+const curRow = () => (S.aligned && S.report ? S.report.rows.find(r => r.id === S.aspect) : null);
+
+// slide as far as the common area allows (each axis on its own, so it runs along edges)
+function moveCrop(start, dx, dy) {
+  const V = S.report.region;
+  let r = { ...start };
+  for (const [ax, d] of [['x', dx], ['y', dy]]) {
+    const at = t => ({ ...r, [ax]: r[ax] + d * t });
+    if (rectFits(V, at(1))) { r = at(1); continue; }
+    let lo = 0, hi = 1;
+    for (let k = 0; k < 24; k++) { const m = (lo + hi) / 2; if (rectFits(V, at(m))) lo = m; else hi = m; }
+    r = at(lo);
+  }
+  return r;
+}
+// grow / shrink from the opposite corner, shape locked
+function sizeCrop(d, p) {
+  const V = S.report.region, ar = d.start.w / d.start.h, [fx, fy] = d.fixed;
+  const want = Math.max(24, Math.max(Math.abs(p[1] - fy), Math.abs(p[0] - fx) / ar));
+  const at = h => { const w = h * ar; return { x: d.sx > 0 ? fx : fx - w, y: d.sy > 0 ? fy : fy - h, w, h }; };
+  if (rectFits(V, at(want))) return at(want);
+  let lo = 0, hi = want;
+  for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (rectFits(V, at(m))) lo = m; else hi = m; }
+  return lo > 8 ? at(lo) : d.start;
+}
 
 stage.addEventListener('pointermove', e => {
   if (!drag) return;
@@ -302,6 +348,13 @@ stage.addEventListener('pointermove', e => {
     it.nudge = [drag.start[0] + p[0] - drag.p[0], drag.start[1] + p[1] - drag.p[1]];
     S.dirtyCrop = true; draw();
     lcd(`nudge ${it.nudge[0].toFixed(1)}, ${it.nudge[1].toFixed(1)} px`);
+  } else if (drag.kind === 'crop-move' || drag.kind === 'crop-size') {
+    const p = toSpace(pos), row = curRow();
+    if (!row) return;
+    const r = drag.kind === 'crop-move' ? moveCrop(drag.start, p[0] - drag.p[0], p[1] - drag.p[1]) : sizeCrop(drag, p);
+    S.manual = { aspect: S.aspect, rect: r };
+    row.rect = { ...r }; row.manual = true;
+    draw();
   } else if (drag.kind === 'anchor' && !drag.raw && S.method === 'match') {
     if (Math.hypot(pos[0] - drag.pos[0], pos[1] - drag.pos[1]) > 6 * dpr) {
       const p = toSpace(pos);
@@ -315,6 +368,7 @@ stage.addEventListener('pointerup', e => {
   const d = drag; drag = null; stage.classList.remove('panning');
   if (!d) return;
   if (d.kind === 'nudge') { recompute(); refreshAll(); return; }
+  if (d.kind === 'crop-move' || d.kind === 'crop-size') { recompute(); refreshAll(); draw(); return; }
   if (d.kind !== 'anchor') return;
   if (dragBox) {
     const b = dragBox; dragBox = null;
@@ -371,6 +425,7 @@ window.addEventListener('keydown', e => {
   if (k === 'v') setTool('view');
   else if (k === 'a') setTool('anchor');
   else if (k === 'n') setTool('nudge');
+  else if (k === 'c') setTool('frame');
   else if (k === 'f') { fitView(); draw(); }
   else if (k === 'x') toggleInclude();
   else if ((e.key === 'Delete' || e.key === 'Backspace') && e.shiftKey) clearAll();
@@ -711,6 +766,7 @@ function recompute() {
   const maps = S.items.map((_, i) => (usable(i) ? effMap(i) : null));
   const inc = S.items.map((_, i) => usable(i));
   S.report = cropReport(S.items, maps, inc, anchorPt(), { place: S.place, zoom: S.zoom });
+  applyManual(maps, inc);
   const r = ASPECTS.find(a => a.id === S.aspect).r;
   S.costs = S.items.length <= 60 ? leaveOneOut(S.items, maps, inc, anchorPt(), r, S.place) : [];
   renderAspects(); renderStrip();
@@ -723,15 +779,33 @@ function recompute() {
   } else {
     const [w, h] = outSize(row);
     const pct = Math.round((row.refW * row.refH) / (ref.W * ref.H) * 100);
-    $('crop-note').textContent = `${n} photos share this ${row.id} frame: ${w}×${h} px, ${pct}% of the reference.`;
+    $('crop-note').textContent = `${n} photos share this ${row.id} frame: ${w}×${h} px, ${pct}% of the reference.${row.manual ? ' placed by hand.' : ''}`;
   }
+}
+
+// a hand-placed crop replaces the automatic one for its shape while it still fits
+const rectFits = (V, r) => V.length >= 3 && [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]].every(([x, y]) => inside(V, x, y));
+function applyManual(maps, inc) {
+  const m = S.manual;
+  if (!m || m.aspect !== S.aspect || !S.report) return;
+  if (!rectFits(S.report.region, m.rect)) { S.manual = null; lcd('the hand-placed crop no longer fits every photo: back to automatic.'); return; }
+  const row = S.report.rows.find(x => x.id === S.aspect);
+  const k = nativeScale(S.items, maps, inc, m.rect);
+  Object.assign(row, { rect: { ...m.rect }, refW: m.rect.w, refH: m.rect.h, outW: Math.floor(m.rect.w * k), outH: Math.floor(m.rect.h * k), manual: true });
 }
 
 function outSize(row) {
   if (!row?.rect) return [0, 0];
-  if (S.size === 'native') return [row.outW, row.outH];
-  const s = +S.size, r = row.rect.w / row.rect.h;
-  return r >= 1 ? [Math.round(s * r), s] : [s, Math.round(s / r)];
+  const r = row.rect.w / row.rect.h;
+  let w, h;
+  if (S.size === 'native') [w, h] = [row.outW, row.outH];
+  else { const s = +S.size; [w, h] = r >= 1 ? [Math.round(s * r), s] : [s, Math.round(s / r)]; }
+  if (S.fmt === 'mp4') {
+    // H.264 wants even sizes, and most encoders stop at 4K
+    const k = Math.min(1, 3840 / Math.max(w, h));
+    w = Math.max(2, Math.floor(w * k / 2) * 2); h = Math.max(2, Math.floor(h * k / 2) * 2);
+  }
+  return [w, h];
 }
 
 function renderAspects() {
@@ -742,7 +816,7 @@ function renderAspects() {
       b.type = 'button'; b.className = 'aspect'; b.dataset.id = a.id; b.setAttribute('role', 'listitem');
       const sw = a.r >= 1 ? 16 : Math.round(16 * a.r), sh = a.r >= 1 ? Math.round(16 / a.r) : 16;
       b.innerHTML = `<span class="shape"><i style="width:${sw}px;height:${sh}px"></i></span><b>${a.id}</b><small>&ndash;</small>`;
-      b.addEventListener('click', () => { S.aspect = a.id; recompute(); refreshAll(); if (S.view === 'crop') fitView(); draw(); });
+      b.addEventListener('click', () => { S.aspect = a.id; S.manual = null; recompute(); refreshAll(); if (S.view === 'crop') fitView(); draw(); });
       box.append(b);
     }
   }
@@ -821,10 +895,11 @@ async function renderCrop(i, row, [w, h]) {
 }
 
 const baseName = n => n.replace(/\.[^.]+$/, '');
-const fileName = (it, row) => `${baseName(it.name)}_${row.id.replace(':', 'x')}.${S.fmt}`;
+const fileName = (it, row) => `${baseName(it.name)}_${row.id.replace(':', 'x')}.${S.fmt === 'png' ? 'png' : 'jpg'}`;
 
 async function exportAll(onlyCurrent = false) {
   if (S.busy) return;
+  if (S.fmt === 'mp4' && !onlyCurrent) return exportVideo();
   const row = S.report?.rows.find(r => r.id === S.aspect);
   if (!S.aligned || !row?.rect) { toast('Align first, and pick a frame shape that fits.', true); return; }
   const ids = onlyCurrent ? [S.cur] : S.items.map((_, i) => i).filter(usable);
@@ -861,13 +936,66 @@ async function exportAll(onlyCurrent = false) {
   }
 }
 
+// every included photo, in strip order, held for S.hold frames at S.fps
+async function exportVideo() {
+  const row = curRow();
+  if (!row?.rect) { toast('Align first, and pick a frame shape that fits.', true); return; }
+  const ids = S.items.map((_, i) => i).filter(usable);
+  if (ids.length < 1) return;
+  const [w, h] = outSize(row), fps = S.fps, hold = S.hold;
+  prepareDownloads();
+  S.cancel = false;
+  busy(true, `video ${row.id}`, true);
+  let GL = null;
+  try {
+    log('loading the video encoder');
+    const M = await mb();
+    const codec = await M.getFirstEncodableVideoCodec(['avc', 'vp9', 'av1', 'hevc'], { width: w, height: h, frameRate: fps });
+    if (!codec) throw new Error(`This browser can't encode ${w}\u00d7${h} video. Pick 1080, or use Chrome or Edge on a desktop.`);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    GL = new StackGL(canvas, { preserve: true, alpha: false });
+    const output = new M.Output({ format: new M.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new M.BufferTarget() });
+    const bitrate = Math.round(Math.min(80e6, Math.max(6e6, w * h * fps * 0.12)));
+    const src = new M.CanvasSource(canvas, { codec, bitrate });
+    output.addVideoTrack(src, { frameRate: fps });
+    await output.start();
+    const z = w / row.rect.w, view = { x: -row.rect.x * z, y: -row.rect.y * z, z };
+    let frame = 0;
+    for (let k = 0; k < ids.length; k++) {
+      if (S.cancel) { await output.cancel(); throw new Error('cancelled'); }
+      const i = ids[k], it = S.items[i];
+      log(`${codec.toUpperCase()} \u00b7 photo ${k + 1} of ${ids.length} \u00b7 ${it.name}`);
+      progress((k + 0.5) / ids.length);
+      const tex = await fullTexture(GL, it);
+      try {
+        GL.begin(w, h);
+        GL.draw({ tex, map: effMap(i), w: it.W, h: it.H }, view);
+        // constant frame rate: the same picture repeated, one sample per frame
+        for (let f = 0; f < hold; f++, frame++) await src.add(frame / fps, 1 / fps);
+      } finally { GL.free(tex); }
+    }
+    log('finishing the file');
+    await output.finalize();
+    const blob = new Blob([output.target.buffer], { type: 'video/mp4' });
+    busy(false);
+    const name = `align_${row.id.replace(':', 'x')}_${w}x${h}_${fps}fps.mp4`;
+    const r = await saveFile(name, blob);
+    $('out-line').textContent = r === 'saved' ? `saved ${name}, ${(blob.size / 1048576).toFixed(1)} MB` : 'save declined.';
+    if (r === 'saved') lcd(`video: ${ids.length} photos, ${frame} frames, ${(frame / fps).toFixed(2)} s at ${fps} fps, ${w}\u00d7${h}.`);
+  } catch (err) {
+    busy(false);
+    if (err.message === 'cancelled') lcd('export cancelled.'); else toast(err.message || String(err), true);
+  } finally { GL?.release(); }
+}
+
 function fitJSON() {
   const row = S.report?.rows.find(r => r.id === S.aspect);
   return {
     app: 'align-stack', version: 1,
     note: 'map: 3x3 row-major, reference pixels -> this photo’s pixels (full resolution, as displayed after EXIF rotation)',
     reference: R()?.name, anchor: anchorPt(), subject: S.roi, method: S.method, kind: S.kind,
-    crop: row?.rect ? { aspect: row.id, rect: row.rect, size: outSize(row) } : null,
+    crop: row?.rect ? { aspect: row.id, rect: row.rect, size: outSize(row), byHand: !!row.manual } : null,
     photos: S.items.map((it, i) => ({ name: it.name, w: it.W, h: it.H, included: usable(i), status: it.res?.status || null, map: usable(i) ? effMap(i) : null })),
   };
 }
@@ -875,6 +1003,9 @@ function fitJSON() {
 // ---------------------------------------------------------------- flick playback
 
 let playTimer = 0;
+// flick at the video's timing when exporting mp4, otherwise 6 photos a second
+const playMs = () => (S.fmt === 'mp4' ? (1000 * S.hold) / S.fps : 1000 / 6);
+function retime() { if (S.playing) { togglePlay(); togglePlay(); } }
 function togglePlay() {
   S.playing = !S.playing;
   $('play-icon').setAttribute('d', S.playing ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5v14l11-7z');
@@ -888,7 +1019,7 @@ function togglePlay() {
         if (usable(i) || !S.aligned) { S.cur = i; break; }
       }
       renderStrip(); draw();
-    }, 1000 / 6);
+    }, playMs());
   }
 }
 
@@ -917,6 +1048,12 @@ function refreshAll() {
   for (const b of document.querySelectorAll('#place .chip')) b.setAttribute('aria-pressed', String(b.dataset.place === S.place));
   for (const b of document.querySelectorAll('#size .chip')) b.setAttribute('aria-pressed', String(b.dataset.size === S.size));
   for (const b of document.querySelectorAll('#fmt .chip')) b.setAttribute('aria-pressed', String(b.dataset.fmt === S.fmt));
+  for (const b of document.querySelectorAll('#fps .chip')) b.setAttribute('aria-pressed', String(+b.dataset.fps === S.fps));
+  const vid = S.fmt === 'mp4', nUse = S.items.filter((_, i) => usable(i)).length;
+  $('video-opts').hidden = !vid;
+  $('hold-val').textContent = `${S.hold} frame${S.hold > 1 ? 's' : ''} \u00b7 ${(S.hold / S.fps).toFixed(2)} s`;
+  $('video-note').textContent = nUse ? `${nUse} photos \u00d7 ${S.hold} = ${nUse * S.hold} frames, ${(nUse * S.hold / S.fps).toFixed(2)} s. order = the strip. space previews it at this speed.` : '';
+  $('btn-auto-crop').hidden = !(S.manual && S.manual.aspect === S.aspect);
   $('kind-block').hidden = S.method !== 'match';
   $('anchor-note').textContent = notes[S.method];
   $('btn-clear-roi').hidden = !(S.roi && S.method === 'match');
@@ -934,7 +1071,8 @@ function refreshAll() {
   const ready = S.aligned && S.report?.rows.find(r => r.id === S.aspect)?.rect;
   $('btn-export').disabled = !ready; $('btn-export-one').disabled = !ready || !usable(S.cur);
   $('btn-save-json').disabled = !S.aligned;
-  $('btn-export').textContent = ready ? `save ${S.items.filter((_, i) => usable(i)).length} crops (.zip)` : 'save all crops (.zip)';
+  $('btn-export').textContent = vid ? 'save video (.mp4)' : ready ? `save ${nUse} crops (.zip)` : 'save all crops (.zip)';
+  $('btn-export-one').textContent = vid ? 'save this frame' : 'save this one';
   $('zoom-val').textContent = `${Math.round((1 - S.zoom) * 100)}%`;
   $('led-ready').className = 'led' + (S.aligned ? ' g' : '');
   const it = CUR();
@@ -982,16 +1120,20 @@ chipGroup('method', 'method', m => {
   refreshAll(); draw();
 });
 chipGroup('kind', 'kind', k => { if (S.kind !== k) { S.kind = k; markStale('model changed: press align all.'); refreshAll(); } });
-chipGroup('place', 'place', p => { S.place = p; recompute(); refreshAll(); if (S.view === 'crop') fitView(); draw(); });
+chipGroup('place', 'place', p => { S.place = p; S.manual = null; recompute(); refreshAll(); if (S.view === 'crop') fitView(); draw(); });
 chipGroup('size', 'size', s => { S.size = s; recompute(); refreshAll(); draw(); });
-chipGroup('fmt', 'fmt', f => { S.fmt = f; refreshAll(); });
+chipGroup('fmt', 'fmt', f => { S.fmt = f; recompute(); refreshAll(); retime(); draw(); });
+chipGroup('fps', 'fps', f => { S.fps = +f; refreshAll(); retime(); });
+$('hold').value = S.hold;
+$('hold').addEventListener('input', () => { S.hold = +$('hold').value; refreshAll(); retime(); });
+$('btn-auto-crop').addEventListener('click', () => { S.manual = null; recompute(); refreshAll(); if (S.view === 'crop') fitView(); draw(); });
 
 function paintFader(el) {
   const min = Number(el.min), max = Number(el.max), v = Number(el.value);
   el.style.setProperty('--pct', `${((v - min) / (max - min || 1)) * 100}%`);
 }
 $('zoom').addEventListener('input', () => {
-  paintFader($('zoom')); S.zoom = 1 - Number($('zoom').value) / 100;
+  paintFader($('zoom')); S.zoom = 1 - Number($('zoom').value) / 100; S.manual = null;
   recompute(); refreshAll(); if (S.view === 'crop') fitView(); draw();
 });
 paintFader($('zoom'));
