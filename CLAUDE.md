@@ -210,7 +210,7 @@ Gotchas:
     version (`<body data-version>`) shows only on hover (`.brand-ver`); no other dots by
     the title. Status LEDs (`aligned · busy`) sit after the crt|stack switch.
   - tab title / og:title / twitter:title / manifest = `Align - JAS.BLACK`;
-    og:site_name JAS.BLACK; canonical guessed as align.jas.black (no CNAME yet).
+    og:site_name JAS.BLACK; canonical align.jas.black (CNAME at the root + web/CNAME).
   - `web/family.js` is the family file verbatim: slider fill, **right-click resets any
     slider** to its load value, hover version, segmented switches. Footers say
     "right-click a slider resets it".
