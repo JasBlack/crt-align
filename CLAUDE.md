@@ -115,8 +115,10 @@ No build step anywhere.
 
 ## Deployment
 
-`web/` is a static site: GitHub Pages (deploy branch, folder `/web`), Netlify, Vercel,
-or any static host. It was also published as a private claude.ai artifact; there it
+`web/` is a static site. GitHub Pages: `.github/workflows/pages.yml` uploads `web/` on
+push to `main` (Pages source must be "GitHub Actions"; a branch deploy only serves `/` or
+`/docs` and renders README.md instead). Custom domain align.jas.black (root `CNAME`, copy
+in `web/CNAME`). Netlify / Vercel: publish directory `web`. It was also published as a private claude.ai artifact; there it
 saves exports through the `downloads` capability (declared as
 `capabilities: {downloads: true}`), elsewhere through an ordinary `<a download>`.
 

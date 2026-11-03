@@ -70,8 +70,11 @@ npx -y serve web -l 5140
 
 Then open http://localhost:5140. It opens with a sample pair already aligned.
 
-To put it online, publish the `web/` folder as-is: GitHub Pages (Settings → Pages →
-deploy from branch, folder `/web`), Netlify, Vercel or any static host. No build step.
+To put it online, publish the `web/` folder as-is. On GitHub Pages this repo deploys
+it with `.github/workflows/pages.yml` on every push to `main`; set Settings → Pages →
+Source to **GitHub Actions** once (a branch deploy can only serve `/` or `/docs`, so it
+would show this README instead of the app). Netlify, Vercel or any static host work too
+(publish directory `web`). No build step.
 
 Browser support: Chrome or Edge recommended (WebGL2 + WebCodecs). Safari 17+ and
 Firefox 130+ work for images; video export depends on their encoders.
